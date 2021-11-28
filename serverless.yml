@@ -1,0 +1,118 @@
+---
+service: wizards-api
+frameworkVersion: '2'
+useDotenv: true
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-dynamodb-local
+  - serverless-offline
+
+custom:
+  stage: ${opt:stage, self:provider.stage}
+
+  dynamodb:
+    stages:
+      - staging
+    start:
+      port: 8000
+      inMemory: true
+      heapInitial: 200m
+      heapMax: 1g
+      migrate: true
+      seed: true
+      convertEmptyValues: true
+
+  serverless-offline:
+    noPrependStageInUrl: true
+
+  infra:
+    table:
+      wizard: 'wizard'
+      affinity: 'affinity'
+      trait: 'trait'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  memorySize: 512
+  stage: staging
+  region: us-west-1
+  iam:
+    role:
+      managedPolicies:
+        - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+  versionFunctions: false
+  apiGateway:
+    shouldStartNameWithService: true
+    minimumCompressionSize: 1024
+  environment:
+    STAGE: ${self:custom.stage}
+    WIZARD_DATA: ${self:custom.infra.table.wizard}-${self:custom.stage}
+    AFFINITY_DATA: ${self:custom.infra.table.affinity}-${self:custom.stage}
+    TRAIT_DATA: ${self:custom.infra.table.trait}-${self:custom.stage}
+
+resources:
+  Resources:
+    wizardData:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.WIZARD_DATA}
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: 'id'
+            KeyType: 'HASH'
+        AttributeDefinitions:
+          - AttributeName: 'id'
+            AttributeType: 'N'
+          - AttributeName: 'affinityId'
+            AttributeType: 'N'
+        GlobalSecondaryIndexes:
+          - IndexName: IndexWizardOnAffinity
+            KeySchema:
+            - AttributeName: 'affinityId'
+              KeyType: 'HASH'
+            - AttributeName: 'id'
+              KeyType: 'RANGE'
+            Projection:
+              ProjectionType: ALL
+
+    traitData:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.TRAIT_DATA}
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: 'id'
+            KeyType: 'HASH'
+        AttributeDefinitions:
+          - AttributeName: 'id'
+            AttributeType: 'N'
+
+    affinityData:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.AFFINITY_DATA}
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: 'id'
+            KeyType: 'HASH'
+        AttributeDefinitions:
+          - AttributeName: 'id'
+            AttributeType: 'N'
+
+functions:
+  request-handler:
+    handler: src/LambdaServer.handler
+    timeout: 30
+    events:
+      - http:
+          path: /{proxy+}
+          method: any
+          cors: true
+      - http:
+          path: /
+          method: any
+          cors: true
