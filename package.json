@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Forgotten Runes Wizards Cult Serverless API",
   "repository": "git@github.com:axejintao/wizard-api.git",
-  "author": "Art Bridge",
+  "author": "jintao",
   "license": "MIT",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
