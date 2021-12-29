@@ -13,3 +13,13 @@ export async function queryTrait(id: number): Promise<Trait | null> {
   }
   return null;
 }
+
+export async function loadTraits(): Promise<Trait[]> {
+  const traits = [];
+  for await (const trait of reader.scan(
+    Trait
+  )) {
+    traits.push(trait);
+  }
+  return traits;
+}
